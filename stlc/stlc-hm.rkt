@@ -11,11 +11,22 @@
 (struct False ()      #:prefab)
 (struct If (e1 e2 e3) #:prefab)
 
+(define (term? e)
+  (match e
+    [(Var x)     (symbol? x)]
+    [(App e1 e2) (and (term? e1) (term? e2))]
+    [(Abs x e)   (and (symbol? x) (term? e))]
+    [(True)      #t]
+    [(False)     #t]
+    [(If e1 e2 e3) (and (term? e1) (term? e2) (term? e3))]
+    [_ #f]))
+
 ; Our types
 (struct TBool ()      #:prefab)
 (struct TFun  (t1 t2) #:prefab)
 (struct TVar  (a)     #:prefab)
 
+; Type well-formedness
 (define (type? t)
   (match t
     [(TBool) #t]
@@ -26,10 +37,15 @@
 ; Schemes: \forall a1...an. t
 (struct Scheme (as t) #:prefab)
 
+(define (scheme? s)
+  (match s
+    [(Scheme as t) (and ((listof symbol?) as) (type? t))]))
+
 ;;; Operational Semantics
 
 ; Substitution
-(define (subst x v e)
+(define/contract (subst x v e)
+  (-> symbol? term? term? term?)
   (match e
     [(Var y) (if (equal? x y) v e)]
     [(App e1 e2) (App (subst x v e1) (subst x v e2))]
@@ -38,7 +54,8 @@
     [_ e]))
 
 ; Our (big-step) reduction
-(define (reduce e)
+(define/contract (reduce e)
+  (-> term? term?)
   (match e
     [(App e1 e2)
      (match (reduce e1)
@@ -54,23 +71,15 @@
 
 ;; Utility
 
-; Free variables
-;(define (free-vars e)
-;  (match e
-;    [(Var x) (list x)]
-;    [(App e1 e2) (remove-duplicates (append (free-vars e1) (free-vars e2)))]
-;    [(Abs x e) (remq x (free-vars e))]
-;    [(True ) '()]
-;    [(False) '()]
-;    [(If e1 e2 e3) (remove-duplicates (append (free-vars e1) (free-vars e2) (free-vars e3)))]))
-
-(define (free-tvars t)
+(define/contract (free-tvars t)
+  (-> type? (listof symbol?))
   (match t
     [(TVar x) (list x)]
     [(TFun t1 t2) (remove-duplicates (append (free-tvars t1) (free-tvars t2)))]
     [(TBool)  '()]))
 
-(define (free-svars s)
+(define/contract (free-svars s)
+  (-> scheme? (listof symbol?))
   (match s
     [(Scheme as t) (remq* as (free-tvars t))]))
 
@@ -86,7 +95,8 @@
                         [(list x t) (and (symbol? x) (type? t))]
                         [_ #f]))) s))
 
-(define (subst-type sub t)
+(define/contract (subst-type sub t)
+  (-> subst? type? type?)
 ;  (displayln (~a "Calling subst-type with: " sub t (type? t) (subst? sub)))
   (match t
     [(TVar x) (lookup-with-default sub x t)]
@@ -95,20 +105,28 @@
     [_ (error (~a "WTF: " t))]
     ))
 
-(define (remove-subst as sub)
+(define/contract (remove-subst as sub)
+  (-> (listof symbol?) subst? subst?)
   (match sub
     ['() '()]
     [(cons (list a t) sub) (if (member a as) (remove-subst as sub) (cons (list a t) (remove-subst as sub)))]))
 
-(define (subst-scheme sub s)
-  (displayln (~a "Substing scheme " sub " " s))
+(define/contract (subst-scheme sub s)
+  (-> subst? scheme? scheme?)
+;  (displayln (~a "Substing scheme " sub " " s))
   (match s 
     [(Scheme as t)
-     (displayln (~a "Scheme is " as " " t))
+;     (displayln (~a "Scheme is " as " " t))
      (Scheme as (subst-type (remove-subst as sub) t))]))
 
 ; TEnv := ListOf (Var * Scheme)
-(define (free-envvars env)
+(define (env? env)
+  (listof (lambda (x) (match x
+                        [(list a b) (and (symbol? a) (scheme? b))]
+                        [_ #f]))))
+
+(define/contract (free-envvars env)
+  (-> env? (listof symbol?))
   (map car env))
 
 (define (map-second f l)
@@ -116,16 +134,23 @@
     ['() '()]
     [(cons (list a b) l) (cons (list a (f b)) l)]))
 
-(define (subst-env sub env)
-  (displayln (~a "Substing-env " sub " " env))
+(define/contract (subst-env sub env)
+  (-> subst? env? env?)
+;  (displayln (~a "Substing-env " sub " " env))
   (map-second (lambda (s) (subst-scheme sub s)) env))
 
-(define (compose sub1 sub2)
+(define/contract (compose sub1 sub2)
+  (-> subst? subst? subst?)
 ;  (displayln (~a "Calling compose with: " sub1 sub2 (subst? sub1) (subst? sub2)))
   (append (map-second (lambda (t) (subst-type sub1 t)) sub2) sub1))
 
-; unify :: Type -> Type -> Subst
-(define (unify t1 t2)
+(define (err? x)
+  (match x
+    ['terr #t]
+    [_     #f]))
+
+(define/contract (unify t1 t2)
+  (-> type? type? (or/c subst? err?))
 ;  (displayln (~a "Calling unify with: " t1 t2 (type? t1) (type? t2)))
   (match* (t1 t2)
     [((TBool) (TBool)) '()]
@@ -144,30 +169,39 @@
     [(_ _) 'terr]))
 
 ; bind :: TVar -> Type -> Subst
-(define (bind a t)
+(define/contract (bind a t)
+  (-> symbol? type? (or/c subst? err?))
 ;  (displayln (~a "Calling bind with: " a t (type? t) (subst? (list (list a t)))))
   (cond [(equal? t (TVar a)) '()]
         [(occurs a t) 'terr]
         [else (list (list a t))]))
 
-(define (occurs x t)
+(define/contract (occurs x t)
+  (-> symbol? type? boolean?)
   (member x (free-tvars t)))
 
-(define (instantiate s)
+(define/contract (instantiate s)
+  (-> scheme? type?)
   (match s
     [(Scheme as t) (subst-type (map (lambda (a) (list a (gensym a))) as) t)]))
 
-(define (generalize env t)
+(define/contract (generalize env t)
+  (-> env? type? scheme?)
   (Scheme (remq* (free-envvars env) (free-tvars t)) t))
 
+(define (pairof c1 c2)
+  (lambda (x) (match x
+                [(list a b) (and (c1 a) (c2 b))]
+                [_ #f])))
 
-(define (lookupEnv env x)
+(define/contract (lookupEnv env x)
+  (-> env? symbol? (or/c (pairof list? type?) err?))
   (match env
     ['() 'terr]
     [(cons (list y s) env) (if (equal? x y) (let ((t (instantiate s))) (list '() t)) (lookupEnv env x))]))
 
-; infer Env Expr -> (Subst, Type)
-(define (infer env e)
+(define/contract (infer env e)
+  (-> env? term? (or/c (pairof subst? type?) err?))
   (match e
     [(Var x) (lookupEnv env x)]
 
@@ -222,8 +256,8 @@
     [(list sub t) (normalize (generalize '() (subst-type sub t)))]))
 
 (define (pretty-infer e)
-  (displayln (~a "Infer: " (infer '() e)))
-  (displayln (~a "Normalized: " (normalize-infer e)))
+;  (displayln (~a "Infer: " (infer '() e)))
+;  (displayln (~a "Normalized: " (normalize-infer e)))
   (match (normalize-infer e)
     ['terr 'terr]
     [(Scheme as t) (pretty-scheme as t)]))
@@ -245,7 +279,7 @@
     [(cons a as) (~a (pretty-type a) " " (pretty-list-vars as))]))
 
 (define (pretty-scheme as t)
-  (displayln (~a "Prettying scheme" as " . " t))
+;  (displayln (~a "Prettying scheme" as " . " t))
   (match as
     ['() (pretty-type t)]
     [_ (~a "forall " (pretty-list-vars as) (pretty-type t))]))
