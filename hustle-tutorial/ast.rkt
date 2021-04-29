@@ -13,10 +13,10 @@
 ;;           | (Let Id Expr Expr)
 ;;           | (Var Id)
 ;; type Id   = Symbol
-;; type Op0  = 'read-byte | 'void
+;; type Op0  = 'read-char | 'peek-char | 'void
 ;; type Op1  = 'add1 | 'sub1 | 'zero?
 ;;           |  'integer->char | 'char->integer 
-;;           | 'write-byte | 'eof-object?
+;;           | 'write-char 'eof-object?
 ;;           | 'box | 'unbox
 ;; type Op2  = '+ | '- | 'eq?
 (struct Eof   ()           #:prefab)

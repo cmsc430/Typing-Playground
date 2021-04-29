@@ -14,9 +14,9 @@
 
 ;; Expr -> Asm
 (define (compile e)
-  (prog (Extern 'peek_byte)
-        (Extern 'read_byte)
-        (Extern 'write_byte)
+  (prog (Extern 'peek_char)
+        (Extern 'read_char)
+        (Extern 'write_char)
         (Extern 'raise_error)
         (Label 'entry)
         (Mov rbx rdi) ; recv heap pointer
@@ -52,11 +52,11 @@
 (define (compile-prim0 p c)
   (match p
     ['void      (seq (Mov rax val-void))]
-    ['read-byte (seq (pad-stack c)
-                     (Call 'read_byte)
+    ['read-char (seq (pad-stack c)
+                     (Call 'read_char)
                      (unpad-stack c))]
-    ['peek-byte (seq (pad-stack c)
-                     (Call 'peek_byte)
+    ['peek-char (seq (pad-stack c)
+                     (Call 'peek_char)
                      (unpad-stack c))]))
 
 ;; Op1 Expr CEnv -> Asm
@@ -87,20 +87,21 @@
 ;                 (Mov rax val-false)
 ;                 (Label l1)))]
          ['char->integer
-          (seq)] ;(assert-char rax)
+          (seq ;(assert-char rax)
                ;(Sar rax char-shift)
-               ;(Sal rax int-shift))]
+               ;(Sal rax int-shift)
+           )]
          ['integer->char
           (seq assert-codepoint)]
 ;               (Sar rax int-shift)
 ;               (Sal rax char-shift)
 ;               (Xor rax type-char))]
          ['eof-object? (eq-imm val-eof)]
-         ['write-byte
+         ['write-char
           (seq assert-byte
                (pad-stack c)
                (Mov rdi rax)
-               (Call 'write_byte)
+               (Call 'write_char)
                (unpad-stack c)
                (Mov rax val-void))]
          ['box
@@ -120,7 +121,7 @@
 ;          (seq (assert-cons rax)
 ;               (Xor rax type-cons)
 ;               (Mov rax (Offset rax 0)))]
-;         ['empty? (eq-imm val-empty)]
+         ;         ['empty? (eq-imm val-empty)]
          )))
 
 ;; Op2 Expr Expr CEnv -> Asm

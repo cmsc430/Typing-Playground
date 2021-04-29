@@ -29,11 +29,13 @@
     [(Bool b) b]
     [(Char c) c]
     [(Eof)    eof]
-;    [(Empty)  '()]
     [(Var x)  (lookup r x)]
     [(Prim0 'void) (void)]
-    [(Prim0 'read-byte) (read-byte)]
-    [(Prim0 'peek-byte) (peek-byte)]
+    
+    ;; Change to account for new typing principle
+    [(Prim0 'read-char) (read-char)]
+    [(Prim0 'peek-char) (peek-char)]
+    
     [(Prim1 p e)
      (match (interp-env e r)
        ['err 'err]

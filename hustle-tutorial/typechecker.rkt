@@ -35,15 +35,15 @@
     [(Bool _) 'tbool]
     [(Char _) 'tchar]
     [(Eof)    'tchar]
-    [(Prim0 'read-byte) 'tchar]
-    [(Prim0 'peek-byte) 'tchar]    
+    [(Prim0 'read-char) 'tchar]
+    [(Prim0 'peek-char) 'tchar]    
     [(Prim0 'void) 'tvoid]    
     [(Prim1 'add1 e) (check G e 'tint 'tint)]
     [(Prim1 'sub1 e) (check G e 'tint 'tint)]
     [(Prim1 'zero? e) (check G e 'tint 'tbool)]
     [(Prim1 'integer->char e) (check G e 'tint 'tchar)]
     [(Prim1 'char->integer e) (check G e 'tchar 'tint)]        
-    [(Prim1 'write-byte  e) (check G e 'tchar 'tvoid)]
+    [(Prim1 'write-char  e) (check G e 'tchar 'tvoid)]
     [(Prim1 'eof-object? e) (check G e 'tchar 'tbool)]
     [(Prim1 'box e)
      (match (type-of G e)

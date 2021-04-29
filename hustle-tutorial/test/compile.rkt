@@ -23,7 +23,7 @@
  (λ (e s)
    (let ((e (parse e)))
      (match (type-of '() e)
-       ['terr 'err]
+       ['terr '(err . "")]
        [t (match (asm-interp/io (compile e) s)
             ['err 'err]
             [(cons r o) (cons (unload/free t r) o)])]))))

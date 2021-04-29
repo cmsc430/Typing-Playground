@@ -10,7 +10,6 @@
     [(? char?)                     (Char s)]
     ['eof                          (Eof)]
     [(? symbol?)                   (Var s)]
-;    [(list 'quote (list))          (Empty)]
     [(list (? (op? op0) p0))       (Prim0 p0)]           
     [(list (? (op? op1) p1) e)     (Prim1 p1 (parse e))]
     [(list (? (op? op2) p2) e1 e2) (Prim2 p2 (parse e1) (parse e2))]
@@ -23,10 +22,10 @@
     [_ (error "Parse error" s)]))
 
 (define op0
-  '(read-byte peek-byte void))
+  '(read-char peek-char void))
 
 (define op1
-  '(add1 sub1 zero? write-byte eof-object?
+  '(add1 sub1 zero? write-char eof-object?
          integer->char char->integer box unbox)) ; empty? car cdr))
 (define op2
   '(+ - eq?)) ; cons))
